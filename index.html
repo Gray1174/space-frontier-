@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Pixel Territory Game</title>
+  <title>Territory Game</title>
   <style>
     html, body {
       margin: 0;
@@ -50,7 +50,6 @@
     const centerY = MAP_ROWS / 2;
     const maxDist = Math.min(centerX, centerY) * 0.9;
 
-    // Generate map with natural island shape
     for (let y = 0; y < MAP_ROWS; y++) {
       const row = [];
       for (let x = 0; x < MAP_COLS; x++) {
@@ -106,7 +105,7 @@
       flagMenu.style.display = "none";
     }
 
-    function spawnPlayer(tx, ty) {
+    function claimArea(tx, ty) {
       for (let dy = -2; dy <= 2; dy++) {
         for (let dx = -2; dx <= 2; dx++) {
           let nx = tx + dx;
@@ -124,6 +123,36 @@
       draw();
     }
 
+    function isNearPlayerOwned(tx, ty, range = 6) {
+      for (let dy = -range; dy <= range; dy++) {
+        for (let dx = -range; dx <= range; dx++) {
+          let nx = tx + dx;
+          let ny = ty + dy;
+          if (
+            nx >= 0 && ny >= 0 && nx < MAP_COLS && ny < MAP_ROWS &&
+            map[ny][nx].owner === "player"
+          ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function handleTileClaim(x, y) {
+      const { tx, ty } = worldToTile(x, y);
+      if (!map[ty] || !map[ty][tx]) return;
+      const tile = map[ty][tx];
+
+      if (tile.type !== "land" || tile.owner === "player") return;
+
+      if (!playerSpawned || isNearPlayerOwned(tx, ty)) {
+        openFlagMenu(x, y);
+        flagMenu.onclick = () => claimArea(tx, ty);
+      }
+    }
+
+    // Mouse events
     canvas.addEventListener("mousedown", (e) => {
       isDragging = true;
       dragStart.x = e.clientX;
@@ -145,16 +174,12 @@
     });
 
     canvas.addEventListener("click", (e) => {
-      if (!playerSpawned) {
-        const { tx, ty } = worldToTile(e.clientX, e.clientY);
-        if (map[ty] && map[ty][tx] && map[ty][tx].type === "land") {
-          openFlagMenu(e.clientX, e.clientY);
-          flagMenu.onclick = () => spawnPlayer(tx, ty);
-        }
+      if (!isDragging) {
+        handleTileClaim(e.clientX, e.clientY);
       }
     });
 
-    // Touch support
+    // Touch events
     canvas.addEventListener("touchstart", (e) => {
       if (e.touches.length === 1) {
         const t = e.touches[0];
@@ -177,13 +202,9 @@
 
     canvas.addEventListener("touchend", (e) => {
       isDragging = false;
-      if (!playerSpawned && e.changedTouches.length === 1) {
+      if (e.changedTouches.length === 1) {
         const t = e.changedTouches[0];
-        const { tx, ty } = worldToTile(t.clientX, t.clientY);
-        if (map[ty] && map[ty][tx] && map[ty][tx].type === "land") {
-          openFlagMenu(t.clientX, t.clientY);
-          flagMenu.onclick = () => spawnPlayer(tx, ty);
-        }
+        handleTileClaim(t.clientX, t.clientY);
       }
     });
 
