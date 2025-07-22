@@ -12,7 +12,6 @@
     }
     canvas {
       display: block;
-      background: #222;
     }
     #flagMenu {
       position: absolute;
@@ -27,6 +26,7 @@
       font-size: 24px;
       color: white;
       user-select: none;
+      z-index: 2;
     }
   </style>
 </head>
@@ -68,11 +68,7 @@
       for (let y = 0; y < MAP_ROWS; y++) {
         for (let x = 0; x < MAP_COLS; x++) {
           const tile = map[y][x];
-          if (tile.owner === "player") {
-            ctx.fillStyle = "blue";
-          } else {
-            ctx.fillStyle = "green";
-          }
+          ctx.fillStyle = tile.owner === "player" ? "blue" : "green";
           ctx.fillRect(
             x * TILE_SIZE + viewOffset.x,
             y * TILE_SIZE + viewOffset.y,
@@ -114,7 +110,7 @@
       closeFlagMenu();
     }
 
-    // PC Mouse Events
+    // Mouse input
     canvas.addEventListener("mousedown", (e) => {
       isDragging = true;
       dragStart.x = e.clientX;
@@ -131,18 +127,14 @@
       }
     });
 
-    canvas.addEventListener("mouseup", (e) => {
+    canvas.addEventListener("mouseup", () => {
       isDragging = false;
     });
 
     canvas.addEventListener("click", (e) => {
       if (!playerSpawned) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const clickX = e.clientX;
-        const clickY = e.clientY;
-        const { tx, ty } = worldToTile(clickX, clickY);
-        openFlagMenu(clickX, clickY);
-
+        const { tx, ty } = worldToTile(e.clientX, e.clientY);
+        openFlagMenu(e.clientX, e.clientY);
         flagMenu.onclick = () => {
           spawnPlayer(tx, ty);
           draw();
@@ -150,7 +142,7 @@
       }
     });
 
-    // Touch Events for iPad/Mobile
+    // Touch input
     canvas.addEventListener("touchstart", (e) => {
       if (e.touches.length === 1) {
         const t = e.touches[0];
@@ -177,7 +169,6 @@
         const t = e.changedTouches[0];
         const { tx, ty } = worldToTile(t.clientX, t.clientY);
         openFlagMenu(t.clientX, t.clientY);
-
         flagMenu.onclick = () => {
           spawnPlayer(tx, ty);
           draw();
