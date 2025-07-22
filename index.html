@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Terrabots</title>
+<style>
+  canvas { background: #222; display: block; margin: 0 auto; touch-action: none; }
+  body { margin: 0; font-family: sans-serif; color: white; text-align: center; background: #111; }
+</style>
+</head>
+<body>
+<h2>Terrabots - Territory Defense</h2>
+<canvas id="gameCanvas" width="500" height="500"></canvas>
+<p>Tap (or click) your blue tiles to place defenders. Survive the bot wave!</p>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const tileSize = 50;
+const gridSize = 10;
+const map = [];
+const TILE_PLAYER = "blue";
+const TILE_ENEMY = "red";
+const TILE_NEUTRAL = "gray";
+
+let bots = [];
+let defenders = [];
+
+const baseTiles = [];
+
+for (let y = 0; y < gridSize; y++) {
+  map[y] = [];
+  for (let x = 0; x < gridSize; x++) {
+    map[y][x] = TILE_NEUTRAL;
+  }
+}
+
+for (let y = 3; y < 7; y++) {
+  for (let x = 3; x < 7; x++) {
+    map[y][x] = TILE_PLAYER;
+    baseTiles.push({x, y});
+  }
+}
+
+function drawGrid() {
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      ctx.fillStyle = map[y][x];
+      ctx.fillRect(x * tileSize, y * tileSize, tileSize - 1, tileSize - 1);
+    }
+  }
+}
+
+function spawnBot() {
+  let edges = [];
+  for (let i = 0; i < gridSize; i++) {
+    edges.push({x: i, y: 0});
+    edges.push({x: i, y: gridSize - 1});
+    edges.push({x: 0, y: i});
+    edges.push({x: gridSize - 1, y: i});
+  }
+  let entry = edges[Math.floor(Math.random() * edges.length)];
+  bots.push({x: entry.x, y: entry.y, timer: 0});
+}
+
+function moveBots() {
+  for (let bot of bots) {
+    let target = baseTiles[Math.floor(Math.random() * baseTiles.length)];
+    let dx = target.x - bot.x;
+    let dy = target.y - bot.y;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      bot.x += Math.sign(dx);
+    } else {
+      bot.y += Math.sign(dy);
+    }
+
+    if (map[bot.y] && map[bot.y][bot.x] === TILE_PLAYER) {
+      bot.timer++;
+      if (bot.timer > 60) {
+        map[bot.y][bot.x] = TILE_ENEMY;
+        bot.timer = 0;
+      }
+    } else {
+      bot.timer = 0;
+    }
+  }
+}
+
+function drawBots() {
+  ctx.fillStyle = "red";
+  for (let bot of bots) {
+    ctx.beginPath();
+    ctx.arc(bot.x * tileSize + 25, bot.y * tileSize + 25, 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawDefenders() {
+  ctx.fillStyle = "yellow";
+  for (let d of defenders) {
+    ctx.beginPath();
+    ctx.arc(d.x * tileSize + 25, d.y * tileSize + 25, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function defendersShoot() {
+  for (let d of defenders) {
+    bots = bots.filter(bot => {
+      if (Math.abs(bot.x - d.x) <= 1 && Math.abs(bot.y - d.y) <= 1) {
+        return false;
+      }
+      return true;
+    });
+  }
+}
+
+function checkWinLose() {
+  let aliveTiles = baseTiles.filter(t => map[t.y][t.x] === TILE_PLAYER);
+  if (aliveTiles.length === 0) {
+    alert("You were taken over! Game Over.");
+    location.reload();
+  }
+  if (bots.length === 0) {
+    alert("You survived the wave! Victory!");
+    location.reload();
+  }
+}
+
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / tileSize);
+  const y = Math.floor((e.clientY - rect.top) / tileSize);
+  if (map[y][x] === TILE_PLAYER) {
+    defenders.push({x, y});
+  }
+});
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawGrid();
+  moveBots();
+  drawBots();
+  drawDefenders();
+  defendersShoot();
+  checkWinLose();
+}
+
+setInterval(gameLoop, 300);
+setInterval(spawnBot, 3000);
+</script>
+</body>
+</html>
