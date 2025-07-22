@@ -6,12 +6,16 @@
   <style>
     html, body {
       margin: 0;
+      padding: 0;
       overflow: hidden;
       background: #111;
-      touch-action: none;
+      width: 100vw;
+      height: 100vh;
     }
     canvas {
       display: block;
+      width: 100vw;
+      height: 100vh;
     }
     #flagMenu {
       position: absolute;
@@ -33,7 +37,6 @@
 <body>
   <canvas id="game"></canvas>
   <div id="flagMenu">🚩</div>
-
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
@@ -47,7 +50,16 @@
     const TILE_SIZE = 4;
     const MAP_COLS = 200;
     const MAP_ROWS = 100;
+
     const map = [];
+    for (let y = 0; y < MAP_ROWS; y++) {
+      const row = [];
+      for (let x = 0; x < MAP_COLS; x++) {
+        const terrain = Math.random() < 0.12 ? "water" : "land";
+        row.push({ owner: null, type: terrain });
+      }
+      map.push(row);
+    }
 
     let playerSpawned = false;
     let viewOffset = { x: 0, y: 0 };
@@ -55,20 +67,16 @@
     let dragStart = { x: 0, y: 0 };
     let dragOffsetStart = { x: 0, y: 0 };
 
-    for (let y = 0; y < MAP_ROWS; y++) {
-      const row = [];
-      for (let x = 0; x < MAP_COLS; x++) {
-        row.push({ owner: null });
-      }
-      map.push(row);
-    }
-
     function draw() {
       ctx.clearRect(0, 0, width, height);
       for (let y = 0; y < MAP_ROWS; y++) {
         for (let x = 0; x < MAP_COLS; x++) {
           const tile = map[y][x];
-          ctx.fillStyle = tile.owner === "player" ? "blue" : "green";
+          if (tile.type === "water") {
+            ctx.fillStyle = "#3377cc";
+          } else {
+            ctx.fillStyle = tile.owner === "player" ? "blue" : "green";
+          }
           ctx.fillRect(
             x * TILE_SIZE + viewOffset.x,
             y * TILE_SIZE + viewOffset.y,
@@ -101,7 +109,10 @@
         for (let dx = -2; dx <= 2; dx++) {
           const nx = x + dx;
           const ny = y + dy;
-          if (nx >= 0 && ny >= 0 && nx < MAP_COLS && ny < MAP_ROWS) {
+          if (
+            nx >= 0 && ny >= 0 && nx < MAP_COLS && ny < MAP_ROWS &&
+            map[ny][nx].type !== "water"
+          ) {
             map[ny][nx].owner = "player";
           }
         }
@@ -110,7 +121,6 @@
       closeFlagMenu();
     }
 
-    // Mouse input
     canvas.addEventListener("mousedown", (e) => {
       isDragging = true;
       dragStart.x = e.clientX;
@@ -134,15 +144,16 @@
     canvas.addEventListener("click", (e) => {
       if (!playerSpawned) {
         const { tx, ty } = worldToTile(e.clientX, e.clientY);
-        openFlagMenu(e.clientX, e.clientY);
-        flagMenu.onclick = () => {
-          spawnPlayer(tx, ty);
-          draw();
-        };
+        if (map[ty] && map[ty][tx] && map[ty][tx].type === "land") {
+          openFlagMenu(e.clientX, e.clientY);
+          flagMenu.onclick = () => {
+            spawnPlayer(tx, ty);
+            draw();
+          };
+        }
       }
     });
 
-    // Touch input
     canvas.addEventListener("touchstart", (e) => {
       if (e.touches.length === 1) {
         const t = e.touches[0];
@@ -168,11 +179,13 @@
       if (!playerSpawned && e.changedTouches.length === 1) {
         const t = e.changedTouches[0];
         const { tx, ty } = worldToTile(t.clientX, t.clientY);
-        openFlagMenu(t.clientX, t.clientY);
-        flagMenu.onclick = () => {
-          spawnPlayer(tx, ty);
-          draw();
-        };
+        if (map[ty] && map[ty][tx] && map[ty][tx].type === "land") {
+          openFlagMenu(t.clientX, t.clientY);
+          flagMenu.onclick = () => {
+            spawnPlayer(tx, ty);
+            draw();
+          };
+        }
       }
     });
 
