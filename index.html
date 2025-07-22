@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Territory Game</title>
+  <title>Territory Game - Island Map</title>
   <style>
     html, body {
       margin: 0;
@@ -52,11 +52,21 @@
     const MAP_ROWS = 100;
 
     const map = [];
+
+    // Generate island-like map
+    const landStartX = 30;
+    const landEndX = MAP_COLS - 30;
+    const landStartY = 20;
+    const landEndY = MAP_ROWS - 20;
+
     for (let y = 0; y < MAP_ROWS; y++) {
       const row = [];
       for (let x = 0; x < MAP_COLS; x++) {
-        const terrain = Math.random() < 0.12 ? "water" : "land";
-        row.push({ owner: null, type: terrain });
+        let type = "water";
+        if (x > landStartX && x < landEndX && y > landStartY && y < landEndY) {
+          type = "land";
+        }
+        row.push({ owner: null, type });
       }
       map.push(row);
     }
