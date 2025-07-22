@@ -2,34 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Territory Game - Island Map</title>
+  <title>Pixel Territory Game</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
       background: #111;
-      width: 100vw;
-      height: 100vh;
     }
     canvas {
       display: block;
-      width: 100vw;
-      height: 100vh;
     }
     #flagMenu {
       position: absolute;
       display: none;
-      width: 40px;
-      height: 40px;
+      width: 50px;
+      height: 50px;
       background: #333;
       border: 2px solid #555;
+      font-size: 28px;
+      color: white;
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      font-size: 24px;
-      color: white;
-      user-select: none;
       z-index: 2;
     }
   </style>
@@ -42,51 +37,48 @@
     const ctx = canvas.getContext("2d");
     const flagMenu = document.getElementById("flagMenu");
 
+    let TILE_SIZE = 4;
+    let MAP_COLS = 300;
+    let MAP_ROWS = 150;
     let width = window.innerWidth;
     let height = window.innerHeight;
     canvas.width = width;
     canvas.height = height;
 
-    const TILE_SIZE = 4;
-    const MAP_COLS = 200;
-    const MAP_ROWS = 100;
-
     const map = [];
+    const centerX = MAP_COLS / 2;
+    const centerY = MAP_ROWS / 2;
+    const maxDist = Math.min(centerX, centerY) * 0.9;
 
-    // Generate island-like map
-    const landStartX = 30;
-    const landEndX = MAP_COLS - 30;
-    const landStartY = 20;
-    const landEndY = MAP_ROWS - 20;
-
+    // Generate map with natural island shape
     for (let y = 0; y < MAP_ROWS; y++) {
       const row = [];
       for (let x = 0; x < MAP_COLS; x++) {
-        let type = "water";
-        if (x > landStartX && x < landEndX && y > landStartY && y < landEndY) {
-          type = "land";
-        }
-        row.push({ owner: null, type });
+        let dx = x - centerX;
+        let dy = y - centerY;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        let noise = Math.random() * 10 - 5;
+        let type = (dist + noise < maxDist) ? "land" : "water";
+        row.push({ type, owner: null });
       }
       map.push(row);
     }
 
-    let playerSpawned = false;
     let viewOffset = { x: 0, y: 0 };
     let isDragging = false;
     let dragStart = { x: 0, y: 0 };
     let dragOffsetStart = { x: 0, y: 0 };
+    let playerSpawned = false;
 
     function draw() {
       ctx.clearRect(0, 0, width, height);
       for (let y = 0; y < MAP_ROWS; y++) {
         for (let x = 0; x < MAP_COLS; x++) {
-          const tile = map[y][x];
-          if (tile.type === "water") {
-            ctx.fillStyle = "#3377cc";
-          } else {
-            ctx.fillStyle = tile.owner === "player" ? "blue" : "green";
-          }
+          let tile = map[y][x];
+          if (tile.type === "water") ctx.fillStyle = "#3377cc";
+          else if (tile.owner === "player") ctx.fillStyle = "blue";
+          else ctx.fillStyle = "green";
+
           ctx.fillRect(
             x * TILE_SIZE + viewOffset.x,
             y * TILE_SIZE + viewOffset.y,
@@ -114,14 +106,14 @@
       flagMenu.style.display = "none";
     }
 
-    function spawnPlayer(x, y) {
+    function spawnPlayer(tx, ty) {
       for (let dy = -2; dy <= 2; dy++) {
         for (let dx = -2; dx <= 2; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
+          let nx = tx + dx;
+          let ny = ty + dy;
           if (
             nx >= 0 && ny >= 0 && nx < MAP_COLS && ny < MAP_ROWS &&
-            map[ny][nx].type !== "water"
+            map[ny][nx].type === "land"
           ) {
             map[ny][nx].owner = "player";
           }
@@ -129,6 +121,7 @@
       }
       playerSpawned = true;
       closeFlagMenu();
+      draw();
     }
 
     canvas.addEventListener("mousedown", (e) => {
@@ -156,14 +149,12 @@
         const { tx, ty } = worldToTile(e.clientX, e.clientY);
         if (map[ty] && map[ty][tx] && map[ty][tx].type === "land") {
           openFlagMenu(e.clientX, e.clientY);
-          flagMenu.onclick = () => {
-            spawnPlayer(tx, ty);
-            draw();
-          };
+          flagMenu.onclick = () => spawnPlayer(tx, ty);
         }
       }
     });
 
+    // Touch support
     canvas.addEventListener("touchstart", (e) => {
       if (e.touches.length === 1) {
         const t = e.touches[0];
@@ -191,10 +182,7 @@
         const { tx, ty } = worldToTile(t.clientX, t.clientY);
         if (map[ty] && map[ty][tx] && map[ty][tx].type === "land") {
           openFlagMenu(t.clientX, t.clientY);
-          flagMenu.onclick = () => {
-            spawnPlayer(tx, ty);
-            draw();
-          };
+          flagMenu.onclick = () => spawnPlayer(tx, ty);
         }
       }
     });
