@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Territory Game</title>
   <style>
     html, body {
@@ -44,7 +44,7 @@
     canvas.width = width;
     canvas.height = height;
 
-    const TILE_SIZE = 8;
+    const TILE_SIZE = 4;
     const MAP_COLS = 200;
     const MAP_ROWS = 100;
     const map = [];
@@ -76,8 +76,8 @@
           ctx.fillRect(
             x * TILE_SIZE + viewOffset.x,
             y * TILE_SIZE + viewOffset.y,
-            TILE_SIZE - 1,
-            TILE_SIZE - 1
+            TILE_SIZE,
+            TILE_SIZE
           );
         }
       }
@@ -114,6 +114,7 @@
       closeFlagMenu();
     }
 
+    // PC Mouse Events
     canvas.addEventListener("mousedown", (e) => {
       isDragging = true;
       dragStart.x = e.clientX;
@@ -149,7 +150,7 @@
       }
     });
 
-    // Touch support for iPad/mobile
+    // Touch Events for iPad/Mobile
     canvas.addEventListener("touchstart", (e) => {
       if (e.touches.length === 1) {
         const t = e.touches[0];
