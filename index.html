@@ -2,17 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>OpenFront-Style Territory Game</title>
+  <title>Territory Game</title>
   <style>
     html, body {
       margin: 0;
-      padding: 0;
       overflow: hidden;
-      background: #000;
+      background: #111;
     }
     canvas {
       display: block;
-      touch-action: none;
     }
     #flagMenu {
       position: absolute;
@@ -31,171 +29,149 @@
   </style>
 </head>
 <body>
-  <canvas id="game"></canvas>
-  <div id="flagMenu">🚩</div>
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    const flagMenu = document.getElementById("flagMenu");
+<canvas id="game"></canvas>
+<div id="flagMenu">🚩</div>
 
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const flagMenu = document.getElementById("flagMenu");
 
-    const TILE_SIZE = 1;
-    const MAP_COLS = 800;
-    const MAP_ROWS = 600;
-    let zoom = 1;
-    let offsetX = 0, offsetY = 0;
-    let isDragging = false;
-    let dragStart = { x: 0, y: 0 };
-    let dragOffsetStart = { x: 0, y: 0 };
+let width = window.innerWidth;
+let height = window.innerHeight;
+canvas.width = width;
+canvas.height = height;
 
-    const map = [];
-    const centerX = MAP_COLS / 2;
-    const centerY = MAP_ROWS / 2;
-    const maxDist = Math.min(centerX, centerY) * 0.85;
+const TILE_SIZE = 1;
+const MAP_COLS = 1000;
+const MAP_ROWS = 1000;
+const map = [];
+const centerX = MAP_COLS / 2;
+const centerY = MAP_ROWS / 2;
+const maxDist = Math.min(centerX, centerY) * 0.85;
 
-    for (let y = 0; y < MAP_ROWS; y++) {
-      const row = [];
-      for (let x = 0; x < MAP_COLS; x++) {
-        const dx = x - centerX;
-        const dy = y - centerY;
-        const dist = Math.sqrt(dx * dx + dy * dy) + (Math.random() * 20 - 10);
-        const type = dist < maxDist ? "land" : "water";
-        row.push({ type, owner: null });
-      }
-      map.push(row);
+for (let y = 0; y < MAP_ROWS; y++) {
+  const row = [];
+  for (let x = 0; x < MAP_COLS; x++) {
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const dist = Math.sqrt(dx * dx + dy * dy) + (Math.random() * 20 - 10);
+    const type = dist < maxDist ? "land" : "water";
+    row.push({ type, owner: null });
+  }
+  map.push(row);
+}
+
+let view = {
+  x: -width / 2 + centerX * TILE_SIZE,
+  y: -height / 2 + centerY * TILE_SIZE,
+  scale: 1,
+};
+
+let isDragging = false;
+let dragStart = { x: 0, y: 0 };
+let viewStart = { x: 0, y: 0 };
+let hasSpawned = false;
+let selectedTile = null;
+
+function draw() {
+  ctx.setTransform(view.scale, 0, 0, view.scale, -view.x * view.scale, -view.y * view.scale);
+  ctx.clearRect(view.x, view.y, width / view.scale, height / view.scale);
+
+  for (let y = 0; y < MAP_ROWS; y++) {
+    for (let x = 0; x < MAP_COLS; x++) {
+      const tile = map[y][x];
+      if (tile.type === "water") ctx.fillStyle = "#3366cc";
+      else if (tile.owner === "player") ctx.fillStyle = "#00aaff";
+      else ctx.fillStyle = "#339933";
+      ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
+  }
+  requestAnimationFrame(draw);
+}
+draw();
 
-    let hasSpawned = false;
+function worldToTile(screenX, screenY) {
+  const x = (screenX + view.x * view.scale) / view.scale;
+  const y = (screenY + view.y * view.scale) / view.scale;
+  return { tx: Math.floor(x / TILE_SIZE), ty: Math.floor(y / TILE_SIZE) };
+}
 
-    function draw() {
-      ctx.clearRect(0, 0, width, height);
-      ctx.save();
-      ctx.translate(offsetX, offsetY);
-      ctx.scale(zoom, zoom);
-
-      for (let y = 0; y < MAP_ROWS; y++) {
-        for (let x = 0; x < MAP_COLS; x++) {
-          const tile = map[y][x];
-          if (tile.type === "water") ctx.fillStyle = "#3366cc";
-          else if (tile.owner === "player") ctx.fillStyle = "#0066ff";
-          else ctx.fillStyle = "#33aa33";
-          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        }
-      }
-
-      ctx.restore();
-      requestAnimationFrame(draw);
+function isAdjacentToPlayer(tx, ty) {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = tx + dx;
+      const ny = ty + dy;
+      if (map[ny] && map[ny][nx] && map[ny][nx].owner === "player") return true;
     }
+  }
+  return false;
+}
 
-    function screenToTile(x, y) {
-      const tx = Math.floor((x - offsetX) / zoom / TILE_SIZE);
-      const ty = Math.floor((y - offsetY) / zoom / TILE_SIZE);
-      return { tx, ty };
-    }
-
-    function claimArea(tx, ty, size = 5) {
-      for (let dy = -Math.floor(size / 2); dy <= Math.floor(size / 2); dy++) {
-        for (let dx = -Math.floor(size / 2); dx <= Math.floor(size / 2); dx++) {
-          const nx = tx + dx;
-          const ny = ty + dy;
-          if (
-            nx >= 0 && nx < MAP_COLS &&
-            ny >= 0 && ny < MAP_ROWS &&
-            map[ny][nx].type === "land" &&
-            map[ny][nx].owner === null
-          ) {
-            map[ny][nx].owner = "player";
-          }
-        }
+function claimArea(tx, ty) {
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const nx = tx + dx;
+      const ny = ty + dy;
+      if (map[ny] && map[ny][nx] && map[ny][nx].type === "land" && map[ny][nx].owner == null) {
+        map[ny][nx].owner = "player";
       }
     }
+  }
+}
 
-    function isAdjacentToPlayer(tx, ty) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = tx + dx;
-          const ny = ty + dy;
-          if (
-            nx >= 0 && nx < MAP_COLS &&
-            ny >= 0 && ny < MAP_ROWS &&
-            map[ny][nx].owner === "player"
-          ) {
-            return true;
-          }
-        }
-      }
-      return false;
-    }
+canvas.addEventListener("mousedown", e => {
+  isDragging = true;
+  dragStart = { x: e.clientX, y: e.clientY };
+  viewStart = { ...view };
+});
 
-    canvas.addEventListener("click", (e) => {
-      const { tx, ty } = screenToTile(e.clientX, e.clientY);
-      if (
-        tx < 0 || tx >= MAP_COLS ||
-        ty < 0 || ty >= MAP_ROWS ||
-        map[ty][tx].type !== "land" ||
-        map[ty][tx].owner !== null
-      ) return;
+canvas.addEventListener("mousemove", e => {
+  if (isDragging) {
+    const dx = (e.clientX - dragStart.x) / view.scale;
+    const dy = (e.clientY - dragStart.y) / view.scale;
+    view.x = viewStart.x - dx;
+    view.y = viewStart.y - dy;
+  }
+});
 
-      if (!hasSpawned) {
-        claimArea(tx, ty);
-        hasSpawned = true;
-      } else if (isAdjacentToPlayer(tx, ty)) {
-        claimArea(tx, ty);
-      }
-    });
+canvas.addEventListener("mouseup", () => {
+  isDragging = false;
+});
 
-    canvas.addEventListener("mousedown", (e) => {
-      isDragging = true;
-      dragStart = { x: e.clientX, y: e.clientY };
-      dragOffsetStart = { x: offsetX, y: offsetY };
-    });
+canvas.addEventListener("wheel", e => {
+  const scaleFactor = 1.1;
+  const zoom = e.deltaY < 0 ? scaleFactor : 1 / scaleFactor;
+  const mx = e.clientX / view.scale + view.x;
+  const my = e.clientY / view.scale + view.y;
+  view.scale *= zoom;
+  view.x = mx - (e.clientX / view.scale);
+  view.y = my - (e.clientY / view.scale);
+});
 
-    canvas.addEventListener("mousemove", (e) => {
-      if (isDragging) {
-        offsetX = dragOffsetStart.x + (e.clientX - dragStart.x);
-        offsetY = dragOffsetStart.y + (e.clientY - dragStart.y);
-      }
-    });
+canvas.addEventListener("click", e => {
+  if (isDragging) return;
+  const { tx, ty } = worldToTile(e.clientX, e.clientY);
+  if (!map[ty] || !map[ty][tx]) return;
+  const tile = map[ty][tx];
 
-    canvas.addEventListener("mouseup", () => (isDragging = false));
-    canvas.addEventListener("mouseleave", () => (isDragging = false));
+  if (tile.type !== "land" || tile.owner) return;
 
-    canvas.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      const zoomFactor = 1.05;
-      if (e.deltaY < 0) zoom *= zoomFactor;
-      else zoom /= zoomFactor;
-    });
+  if (!hasSpawned || isAdjacentToPlayer(tx, ty)) {
+    selectedTile = { tx, ty };
+    flagMenu.style.left = e.clientX + "px";
+    flagMenu.style.top = e.clientY + "px";
+    flagMenu.style.display = "flex";
+  }
+});
 
-    canvas.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 1) {
-        isDragging = true;
-        dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        dragOffsetStart = { x: offsetX, y: offsetY };
-      }
-    });
-
-    canvas.addEventListener("touchmove", (e) => {
-      if (e.touches.length === 1 && isDragging) {
-        offsetX = dragOffsetStart.x + (e.touches[0].clientX - dragStart.x);
-        offsetY = dragOffsetStart.y + (e.touches[0].clientY - dragStart.y);
-      }
-    });
-
-    canvas.addEventListener("touchend", () => (isDragging = false));
-
-    window.addEventListener("resize", () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-    });
-
-    draw();
-  </script>
+flagMenu.onclick = () => {
+  if (selectedTile) {
+    claimArea(selectedTile.tx, selectedTile.ty);
+    hasSpawned = true;
+    flagMenu.style.display = "none";
+  }
+};
+</script>
 </body>
 </html>
