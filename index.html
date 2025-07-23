@@ -50,6 +50,7 @@ const centerX = MAP_COLS / 2;
 const centerY = MAP_ROWS / 2;
 const maxDist = Math.min(centerX, centerY) * 0.85;
 
+// Generate land and water map
 for (let y = 0; y < MAP_ROWS; y++) {
   const row = [];
   for (let x = 0; x < MAP_COLS; x++) {
@@ -62,6 +63,7 @@ for (let y = 0; y < MAP_ROWS; y++) {
   map.push(row);
 }
 
+// Camera view
 let view = {
   x: -width / 2 + centerX * TILE_SIZE,
   y: -height / 2 + centerY * TILE_SIZE,
@@ -74,6 +76,7 @@ let viewStart = { x: 0, y: 0 };
 let hasSpawned = false;
 let selectedTile = null;
 
+// Draw loop
 function draw() {
   ctx.setTransform(view.scale, 0, 0, view.scale, -view.x * view.scale, -view.y * view.scale);
   ctx.clearRect(view.x, view.y, width / view.scale, height / view.scale);
@@ -87,27 +90,34 @@ function draw() {
       ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
   }
+
   requestAnimationFrame(draw);
 }
 draw();
 
+// Convert screen to tile position
 function worldToTile(screenX, screenY) {
   const x = (screenX + view.x * view.scale) / view.scale;
   const y = (screenY + view.y * view.scale) / view.scale;
   return { tx: Math.floor(x / TILE_SIZE), ty: Math.floor(y / TILE_SIZE) };
 }
 
+// Check if tile is next to owned land
 function isAdjacentToPlayer(tx, ty) {
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const nx = tx + dx;
       const ny = ty + dy;
-      if (map[ny] && map[ny][nx] && map[ny][nx].owner === "player") return true;
+      if (nx === tx && ny === ty) continue;
+      if (map[ny] && map[ny][nx] && map[ny][nx].owner === "player") {
+        return true;
+      }
     }
   }
   return false;
 }
 
+// Claim a 5×5 area centered on tile
 function claimArea(tx, ty) {
   for (let dy = -2; dy <= 2; dy++) {
     for (let dx = -2; dx <= 2; dx++) {
@@ -120,12 +130,12 @@ function claimArea(tx, ty) {
   }
 }
 
+// Input: drag
 canvas.addEventListener("mousedown", e => {
   isDragging = true;
   dragStart = { x: e.clientX, y: e.clientY };
   viewStart = { ...view };
 });
-
 canvas.addEventListener("mousemove", e => {
   if (isDragging) {
     const dx = (e.clientX - dragStart.x) / view.scale;
@@ -134,11 +144,11 @@ canvas.addEventListener("mousemove", e => {
     view.y = viewStart.y - dy;
   }
 });
-
 canvas.addEventListener("mouseup", () => {
   isDragging = false;
 });
 
+// Zoom
 canvas.addEventListener("wheel", e => {
   const scaleFactor = 1.1;
   const zoom = e.deltaY < 0 ? scaleFactor : 1 / scaleFactor;
@@ -149,6 +159,7 @@ canvas.addEventListener("wheel", e => {
   view.y = my - (e.clientY / view.scale);
 });
 
+// Tap/Click
 canvas.addEventListener("click", e => {
   if (isDragging) return;
   const { tx, ty } = worldToTile(e.clientX, e.clientY);
@@ -157,6 +168,7 @@ canvas.addEventListener("click", e => {
 
   if (tile.type !== "land" || tile.owner) return;
 
+  // First spawn or valid expansion
   if (!hasSpawned || isAdjacentToPlayer(tx, ty)) {
     selectedTile = { tx, ty };
     flagMenu.style.left = e.clientX + "px";
@@ -165,11 +177,13 @@ canvas.addEventListener("click", e => {
   }
 });
 
+// Confirm flag placement
 flagMenu.onclick = () => {
   if (selectedTile) {
     claimArea(selectedTile.tx, selectedTile.ty);
     hasSpawned = true;
     flagMenu.style.display = "none";
+    selectedTile = null;
   }
 };
 </script>
